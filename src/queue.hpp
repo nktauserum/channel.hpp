@@ -2,7 +2,7 @@
 
 #include <atomic>
 
-#include "futex.h"
+#include "futex.hpp"
 
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
