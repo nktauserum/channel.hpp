@@ -1,0 +1,45 @@
+#pragma once
+
+// #include <thread>
+#include <atomic>
+
+#include "queue.h"
+
+template <typename T>
+struct Channel {
+private:
+    Queue<T> *workers;
+    alignas(64) std::atomic<uint32_t> count = 0;
+    alignas(64) std::atomic<uint32_t> next = 0;
+
+public:
+    Queue<T>* acquire() {
+        return &workers[count.fetch_add(1, std::memory_order_relaxed)];
+    }
+
+    void push(T item) {
+        while (1) {
+            int idx = (next.fetch_add(1, std::memory_order_relaxed)) % count;
+            Queue<T>& worker = workers[idx];
+
+            T* buf;
+            if (!(buf = worker.acquire())) {
+                // std::this_thread::yield(); // is it really necessary? 
+                continue;
+            }
+            *buf = item;
+            worker.push();
+
+            if (worker.waiting.exchange(0, std::memory_order_acq_rel))
+                futex_wake(&worker.waiting);
+
+            break;
+        }
+    }
+
+    Channel(uint32_t size) : workers{new Queue<T>[size]} {}
+    ~Channel() {
+        delete[] workers;
+    }
+};
+
