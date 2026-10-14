@@ -63,6 +63,7 @@ public:
     }
 
     void close() {
+        futex_wake(&waiting);
         closed.store(true, std::memory_order_release);
     }
 };
