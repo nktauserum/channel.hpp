@@ -12,7 +12,6 @@
 enum Status : int {
     OK,
     EMPTY,
-    FULL,
     CLOSED,
 };
 
@@ -30,15 +29,15 @@ private:
 public:
     std::atomic<uint32_t> waiting;
 
-    std::pair<T*, int> acquire() {
+    T* acquire() {
         if (head.load(std::memory_order_relaxed) - tail_cache == QUEUE_SIZE) {
             tail_cache = tail.load(std::memory_order_consume);
             if (unlikely(head - tail_cache == QUEUE_SIZE)) {
-                return std::make_pair(nullptr, -FULL);
+                return nullptr;
             }
         }
 
-        return std::make_pair(&data[head % QUEUE_SIZE], OK);
+        return &data[head % QUEUE_SIZE];
     }
 
     void push() {

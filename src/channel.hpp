@@ -24,8 +24,8 @@ public:
             int idx = (next.fetch_add(1, std::memory_order_relaxed)) % size;
             Queue<T>& worker = workers[idx];
 
-            auto [buf, status] = worker.acquire();
-            if (status < 0) {
+            auto buf = worker.acquire();
+            if (!buf) {
                 continue;
             }
             *buf = item;
