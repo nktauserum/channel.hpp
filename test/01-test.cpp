@@ -16,11 +16,12 @@ int main(void) {
             auto queue = ch.acquire();
 
             for (;;) {
-                int* item = queue->read();
-                if (!item) {
+                auto [item, status] = queue->read();
+                if (status == -EMPTY) {
                     queue->wait();
                     continue;
-                }
+                } else if (status == -CLOSED) break;
+
                 queue->pop();
 
                 std::println("Worker #{} got {}", i, *item);
@@ -30,8 +31,11 @@ int main(void) {
     for (int i = 0; i < 10; ++i)
         ch.push(i+1);
 
+    ch.close();
+
     for (uint32_t i = 0; i < num_threads; ++i)
         pool[i].join();
 
     return 0;
 }
+
