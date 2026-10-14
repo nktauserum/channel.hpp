@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <utility>
 
 #include "futex.hpp"
 
@@ -8,38 +9,48 @@
 
 #define QUEUE_SIZE 64
 
+enum Status : int {
+    OK,
+    EMPTY,
+    FULL,
+    CLOSED,
+};
+
 template <typename T>
 struct Queue {
 private:
     alignas(64) std::atomic<uint32_t> head = 0;
     alignas(64) std::atomic<uint32_t> tail_cache = 0;
     alignas(64) std::atomic<uint32_t> tail = 0;
+    alignas(64) std::atomic<bool> closed = false;
    
     T data[QUEUE_SIZE]; // size must be a power of two
                         
 public:
     std::atomic<uint32_t> waiting;
 
-    T* acquire() {
+    std::pair<T*, int> acquire() {
         if (head - tail_cache == QUEUE_SIZE) {
             tail_cache = tail.load(std::memory_order_consume);
             if (unlikely(head - tail_cache == QUEUE_SIZE)) {
-                return nullptr;
+                return std::make_pair(nullptr, -FULL);
             }
         }
 
-        return &data[head % QUEUE_SIZE];
+        return std::make_pair(&data[head % QUEUE_SIZE], OK);
     }
 
     void push() {
         head.fetch_add(1, std::memory_order_release);
     }
 
-    T* read() {
+    std::pair<T*, int> read() {
         if (tail == head.load(std::memory_order_acquire)) { 
-            return nullptr;
+            if (unlikely(closed.load(std::memory_order_acquire)))
+                return std::make_pair(nullptr, -CLOSED);
+            return std::make_pair(nullptr, -EMPTY);
         }
-        return &data[tail % QUEUE_SIZE];
+        return std::make_pair(&data[tail % QUEUE_SIZE], OK);
     }
 
     void pop() {
@@ -49,6 +60,10 @@ public:
     void wait() {
         waiting.store(1, std::memory_order_relaxed);
         futex_wait(&waiting, 1);
+    }
+
+    void close() {
+        closed.store(true, std::memory_order_release);
     }
 };
 

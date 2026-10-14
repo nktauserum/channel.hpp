@@ -24,9 +24,8 @@ public:
             int idx = (next.fetch_add(1, std::memory_order_relaxed)) % size;
             Queue<T>& worker = workers[idx];
 
-            T* buf;
-            if (!(buf = worker.acquire())) {
-                // std::this_thread::yield(); // is it really necessary? 
+            auto [buf, status] = worker.acquire();
+            if (status < 0) {
                 continue;
             }
             *buf = item;
@@ -39,8 +38,15 @@ public:
         }
     }
 
+    void close() {
+        for (uint32_t i = 0; i < size; ++i) {
+            workers[i].close(); 
+        }
+    }
+
     Channel(uint32_t size) : size{size}, workers{new Queue<T>[size]} {}
     ~Channel() {
+        close();
         delete[] workers;
     }
 };
