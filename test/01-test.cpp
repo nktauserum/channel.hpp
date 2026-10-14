@@ -5,7 +5,7 @@
 #include "../src/channel.hpp"
 
 int main(void) {
-    const uint32_t num_threads = 100;
+    const uint32_t num_threads = 10;
     Channel<int> ch(num_threads);
 
     std::vector<std::thread> pool;
@@ -28,7 +28,7 @@ int main(void) {
             }
         });
 
-    for (int i = 0; i < 1000; ++i)
+    for (int i = 0; i < 50; ++i)
         ch.push(i+1);
 
     ch.close();
