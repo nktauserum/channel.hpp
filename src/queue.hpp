@@ -20,8 +20,9 @@ template <typename T>
 struct Queue {
 private:
     alignas(64) std::atomic<uint32_t> head = 0;
-    alignas(64) std::atomic<uint32_t> tail_cache = 0;
     alignas(64) std::atomic<uint32_t> tail = 0;
+    alignas(64) uint32_t tail_cache = 0;
+
     alignas(64) std::atomic<bool> closed = false;
    
     T data[QUEUE_SIZE]; // size must be a power of two
@@ -30,7 +31,7 @@ public:
     std::atomic<uint32_t> waiting;
 
     std::pair<T*, int> acquire() {
-        if (head - tail_cache == QUEUE_SIZE) {
+        if (head.load(std::memory_order_relaxed) - tail_cache == QUEUE_SIZE) {
             tail_cache = tail.load(std::memory_order_consume);
             if (unlikely(head - tail_cache == QUEUE_SIZE)) {
                 return std::make_pair(nullptr, -FULL);
@@ -45,7 +46,7 @@ public:
     }
 
     std::pair<T*, int> read() {
-        if (tail == head.load(std::memory_order_acquire)) { 
+        if (tail.load(std::memory_order_relaxed) == head.load(std::memory_order_acquire)) { 
             if (unlikely(closed.load(std::memory_order_acquire)))
                 return std::make_pair(nullptr, -CLOSED);
             return std::make_pair(nullptr, -EMPTY);
