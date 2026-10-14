@@ -11,8 +11,10 @@ int main(void) {
     std::vector<std::thread> pool;
     for (uint32_t i = 0; i < num_threads; ++i)
         pool.emplace_back([&ch, i](){
+            std::println("Worker #{} started", i); 
+
             auto queue = ch.acquire();
-            
+
             for (;;) {
                 int* item = queue->read();
                 if (!item) {
@@ -21,7 +23,7 @@ int main(void) {
                 }
                 queue->pop();
 
-                std::println("Worker #{} got {}", i+1, *item);
+                std::println("Worker #{} got {}", i, *item);
             }
         });
 

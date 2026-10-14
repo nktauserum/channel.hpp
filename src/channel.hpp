@@ -10,6 +10,7 @@ template <typename T>
 struct Channel {
 private:
     Queue<T> *workers;
+    uint32_t size;
     alignas(64) std::atomic<uint32_t> count = 0;
     alignas(64) std::atomic<uint32_t> next = 0;
 
@@ -20,7 +21,7 @@ public:
 
     void push(T item) {
         while (1) {
-            int idx = (next.fetch_add(1, std::memory_order_relaxed)) % count;
+            int idx = (next.fetch_add(1, std::memory_order_relaxed)) % size;
             Queue<T>& worker = workers[idx];
 
             T* buf;
@@ -38,7 +39,7 @@ public:
         }
     }
 
-    Channel(uint32_t size) : workers{new Queue<T>[size]} {}
+    Channel(uint32_t size) : size{size}, workers{new Queue<T>[size]} {}
     ~Channel() {
         delete[] workers;
     }
